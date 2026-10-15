@@ -9,7 +9,7 @@
 |---|---|
 | 仓库形态 | PHP 源码，无构建步骤，拷过去就能跑 |
 | 官方镜像 | `xyzbz/recipe-hub:1.1.3`（也带 `latest`） |
-| 参考线上 | `https://ce.52ke.top`（宝塔 + Nginx + PHP-FPM 路线） |
+| 参考线上 | `https://caipu.dawnlife.qzz.io/`（宝塔 + Nginx + PHP-FPM 路线） |
 | 详细文档 | 功能细节看 `README.md`，部署三步看 `DEPLOY.md` |
 
 ---
