@@ -1,0 +1,87 @@
+# 家常菜谱 · docker compose 部署
+#
+#   docker compose up -d             # 拉 Docker Hub 上的镜像并启动
+#   docker compose up -d --build     # 从源码本地构建（Hub 上还没推对应版本时用这个）
+#   docker compose logs -f           # 看日志
+#   docker compose down              # 停止（数据留在 ./data）
+#   docker compose pull && docker compose up -d   # 升级
+#
+# 起来之后浏览器打开 http://服务器IP:8080 ，会走首次安装引导建管理员账号。
+
+services:
+  recipe-hub:
+    # Docker Hub 上的镜像。
+    # 如果那边还没推 1.1.3（备份改成整站 zip 的那版），把下面这行注释掉、
+    # 放开 build 段，用 `docker compose up -d --build` 在本地构建。
+    image: xyzbz/recipe-hub:1.1.3
+    # build:
+    #   context: .
+    #   dockerfile: Dockerfile
+    container_name: recipe-hub
+    restart: unless-stopped
+
+    ports:
+      # 左边是宿主机端口，被占用了就改成 8081、9090 之类
+      - "8080:80"
+
+    environment:
+      TZ: Asia/Shanghai
+
+      # ---- 站点 ----
+      RH_SITE_NAME: 家常菜谱
+      RH_SITE_DESC: 自己家的中餐菜谱本
+      RH_TIMEZONE: Asia/Shanghai
+
+      # 站点对外地址。**微信/飞书定时推送要带封面图和菜名链接就靠它**——
+      # 命令行里的 cron 没有域名概念，不填推送会降级成纯文本。
+      # 也可以留空，之后在「管理后台 → 站点设置」里填（后台填的优先）。
+      RH_SITE_URL: ""
+
+      # 想让家人自己注册就改成 "1"，默认只允许管理员在后台加人
+      RH_ALLOW_REGISTER: "0"
+
+      # ---- 图片 ----
+      # 单张图片上限（MB）。容器入口会据此放开 PHP 的 upload_max_filesize。
+      RH_UPLOAD_MAX_MB: "8"
+      # 主图最长边，超出等比缩小；手机随手拍的原图会缩到这个尺寸再转 WebP
+      RH_IMAGE_MAX_WIDTH: "1600"
+      RH_IMAGE_QUALITY: "82"
+
+      # ---- 其它 ----
+      # 菜谱里写了食材库没有的名字时，自动登记一条（关掉的话采购清单没法按分类归组）
+      RH_AUTO_INGREDIENT: "1"
+      # 登录有效期（天）
+      RH_SESSION_DAYS: "30"
+      # 排查问题时改成 "1"，PHP 报错会直接显示在页面上
+      RH_DEBUG: "0"
+
+      # 数据目录，别改。改了就找不到卷了。
+      RH_DATA_DIR: /var/www/html/data
+
+      # 可选：把容器里的 www-data 对齐到宿主机用户，避免挂载卷权限打架。
+      # 群晖/威联通上跑，把下面两行的注释去掉并填 `id -u` / `id -g` 的结果。
+      # PUID: "1026"
+      # PGID: "100"
+
+    volumes:
+      # 全部家当：数据库 recipe.sqlite + 上传图片 + 备份，都在这里。
+      # 备份就是把这个目录整个拷走。
+      - ./data:/var/www/html/data
+      #
+      # 也可以用命名卷（Docker 自己管理，路径在 /var/lib/docker/volumes/ 下）：
+      # - recipe-hub-data:/var/www/html/data
+
+    healthcheck:
+      test: ["CMD-SHELL", "php -r 'exit(@file_get_contents(\"http://127.0.0.1/healthz\") === false ? 1 : 0);'"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+    # 家用实例不需要额外权限
+    security_opt:
+      - no-new-privileges:true
+
+# 用命名卷时把上面的注释一起放开
+# volumes:
+#   recipe-hub-data:
